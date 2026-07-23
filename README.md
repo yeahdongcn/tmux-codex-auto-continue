@@ -27,11 +27,11 @@ verified input sequence, not a promise that every Codex layout is supported.
 
 ## Quick install
 
-Pinned one-line installer (v0.2.2):
+Pinned one-line installer (v0.2.3):
 
 ```sh
 curl --proto '=https' --tlsv1.2 -fsSL \
-  https://raw.githubusercontent.com/yeahdongcn/tmux-codex-auto-continue/v0.2.2/install.sh | sh
+  https://raw.githubusercontent.com/yeahdongcn/tmux-codex-auto-continue/v0.2.3/install.sh | sh
 ```
 
 Using TPM? See [TPM installation](#tpm-installation) for the opt-in config
@@ -41,7 +41,7 @@ For an audit-first install, download and inspect the script before running it:
 
 ```sh
 curl --proto '=https' --tlsv1.2 -fsSLo /tmp/tmux-codex-install.sh \
-  https://raw.githubusercontent.com/yeahdongcn/tmux-codex-auto-continue/v0.2.2/install.sh
+  https://raw.githubusercontent.com/yeahdongcn/tmux-codex-auto-continue/v0.2.3/install.sh
 less /tmp/tmux-codex-install.sh
 sh /tmp/tmux-codex-install.sh
 ```
@@ -63,7 +63,7 @@ installation, for example:
 
 ```sh
 curl --proto '=https' --tlsv1.2 -fsSL \
-  https://raw.githubusercontent.com/yeahdongcn/tmux-codex-auto-continue/v0.2.2/install.sh \
+  https://raw.githubusercontent.com/yeahdongcn/tmux-codex-auto-continue/v0.2.3/install.sh \
   | env TMUX_CODEX_AUTO_CONTINUE_KEY=C-a sh
 ```
 
@@ -71,7 +71,7 @@ To install only the executable without changing or sourcing tmux config:
 
 ```sh
 curl --proto '=https' --tlsv1.2 -fsSL \
-  https://raw.githubusercontent.com/yeahdongcn/tmux-codex-auto-continue/v0.2.2/install.sh \
+  https://raw.githubusercontent.com/yeahdongcn/tmux-codex-auto-continue/v0.2.3/install.sh \
   | sh -s -- --no-config
 ```
 
@@ -155,7 +155,7 @@ No tmux session or pane is created, renamed, restarted, closed, or killed.
 - Codex CLI installed from the npm `@openai/codex` package
 - UTF-8 terminal and the English Codex UI
 
-v0.2.2 is tested with Codex CLI 0.144.5, plus isolated tmux integrations
+v0.2.3 is tested with Codex CLI 0.144.5, plus isolated tmux integrations
 using a native fake-Codex process. Codex UI wording and layout may change in
 later releases; unknown layouts are ignored rather than matched loosely.
 macOS, Homebrew/standalone Codex binaries, localized UI text, and non-Linux
@@ -239,7 +239,7 @@ seconds and is revalidated after the mode exits.
 
 ## Update and uninstall
 
-Re-run the pinned v0.2.2 installer to update. It replaces only the verified
+Re-run the pinned v0.2.3 installer to update. It replaces only the verified
 watcher process for the default tmux socket and rewrites only its marked block
 with the current executable path and toggle key; it does not restart the tmux
 server or any pane. The installer removes the obsolete v0.1.x Worked opt-in
@@ -257,7 +257,7 @@ To remove a curl installation:
 
 ```sh
 curl --proto '=https' --tlsv1.2 -fsSL \
-  https://raw.githubusercontent.com/yeahdongcn/tmux-codex-auto-continue/v0.2.2/uninstall.sh | sh
+  https://raw.githubusercontent.com/yeahdongcn/tmux-codex-auto-continue/v0.2.3/uninstall.sh | sh
 ```
 
 The uninstaller disables the watcher, cleans up the obsolete v0.1.x option,

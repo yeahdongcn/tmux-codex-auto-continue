@@ -10,7 +10,7 @@ repository. Include the Codex version, tmux version, terminal width/height, the
 rendered prompt structure, and whether copy mode was active. Do not include
 credentials, request contents, or other private pane output.
 
-The supported surface for v0.2.2 is Linux, Python 3.10+, an English Codex UI,
+The supported surface for v0.2.3 is Linux, Python 3.10+, an English Codex UI,
 and the npm `@openai/codex` native binary layout. Unsupported environments fail
 closed or are ignored.
 

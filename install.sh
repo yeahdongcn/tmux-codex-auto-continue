@@ -2,9 +2,9 @@
 set -eu
 umask 077
 
-VERSION=v0.2.2
+VERSION=v0.2.3
 REPO_RAW_BASE=${TMUX_CODEX_AUTO_CONTINUE_RAW_BASE:-"https://raw.githubusercontent.com/yeahdongcn/tmux-codex-auto-continue/$VERSION"}
-WATCHER_SHA256=771cd59b6f55e662d460a28eba78a53da77840697783c9838c4efa336def02ae
+WATCHER_SHA256=f0955a5858bc806b65284baca17becd3b5fe9b27e5c65a13ac227d14ebb8dd24
 BIN_DIR=${TMUX_CODEX_AUTO_CONTINUE_BIN_DIR:-"$HOME/.local/bin"}
 TMUX_CONF=${TMUX_CODEX_AUTO_CONTINUE_TMUX_CONF:-"$HOME/.tmux.conf"}
 TOGGLE_KEY=${TMUX_CODEX_AUTO_CONTINUE_KEY:-A}
@@ -72,6 +72,13 @@ if [ "$INSTALL_CONFIG" -eq 1 ]; then
         exit 1
     fi
     config_updated=1
+    legacy_config=0
+    if [ "$start_count" -eq 0 ] \
+        && grep -Eq '^[[:space:]]*set -goq @codex-auto-continue (on|off)[[:space:]]*$' "$TMUX_CONF" \
+        && grep -Eq '^[[:space:]]*bind-key [^[:space:]]+ run-shell .*tmux-codex-auto-continue.*--toggle' "$TMUX_CONF" \
+        && grep -Eq '^[[:space:]]*run-shell .*tmux-codex-auto-continue' "$TMUX_CONF"; then
+        legacy_config=1
+    fi
     if [ "$start_count" -eq 1 ]; then
         config_tmp=$(mktemp "${TMPDIR:-/tmp}/tmux-codex-config.XXXXXX")
         awk -v start="$start_marker" -v end="$end_marker" '
@@ -82,6 +89,17 @@ if [ "$INSTALL_CONFIG" -eq 1 ]; then
         chmod --reference="$TMUX_CONF" "$config_tmp"
         mv "$config_tmp" "$TMUX_CONF"
         config_tmp=
+    elif [ "$legacy_config" -eq 1 ]; then
+        config_tmp=$(mktemp "${TMPDIR:-/tmp}/tmux-codex-config.XXXXXX")
+        awk '
+            /tmux-codex-auto-continue/ { next }
+            /^[[:space:]]*set -goq @codex-auto-continue (on|off)[[:space:]]*$/ { next }
+            { print }
+        ' "$TMUX_CONF" > "$config_tmp"
+        chmod --reference="$TMUX_CONF" "$config_tmp"
+        mv "$config_tmp" "$TMUX_CONF"
+        config_tmp=
+        printf 'Migrated the legacy unmarked tmux-codex-auto-continue configuration in %s\n' "$TMUX_CONF"
     elif grep -Fq 'tmux-codex-auto-continue' "$TMUX_CONF" 2>/dev/null; then
         config_updated=0
         printf 'Unmanaged tmux-codex-auto-continue text detected in %s; no config was added.\n' "$TMUX_CONF" >&2

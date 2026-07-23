@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.2.3 - 2026-07-23
+
+- Migrate complete legacy unmarked curl configuration blocks into the current
+  managed form while continuing to refuse ambiguous unmarked references.
+
 ## v0.2.2 - 2026-07-23
 
 - Make the curl installer rewrite only its marked block, refresh changed

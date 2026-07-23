@@ -34,7 +34,7 @@ MAX_ACTIVITY_TO_WORKED_LINES = 120
 REPLY = "Continue"
 OPTION_NAME = "@codex-auto-continue"
 EMPTY_COMPOSER_CURSOR_X = 2
-VERSION = "0.2.2"
+VERSION = "0.2.3"
 
 # Requiring Codex's exact event glyph and structure in column zero avoids
 # matching quoted text in user prompts, assistant messages, or shell output.

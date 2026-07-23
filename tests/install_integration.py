@@ -171,6 +171,25 @@ def main() -> int:
             assert "prefix+" not in no_config.stdout
             assert config.read_text(encoding="utf-8") == before_no_config
 
+            # A complete pre-marker installation is safe to recognize and
+            # migrate into the current managed block.
+            config.write_text(
+                "# Legacy installation\n"
+                "set -goq @codex-auto-continue on\n"
+                "bind-key A run-shell -b '~/.local/bin/"
+                "tmux-codex-auto-continue --socket \"#{socket_path}\" "
+                "--toggle'\n"
+                "run-shell -b '~/.local/bin/tmux-codex-auto-continue "
+                "--socket \"#{socket_path}\" --restart'\n",
+                encoding="utf-8",
+            )
+            migrated = run_installer()
+            assert migrated.returncode == 0, migrated.stdout
+            migrated_text = config.read_text(encoding="utf-8")
+            assert "Migrated the legacy unmarked" in migrated.stdout
+            assert "bind-key C-b " in migrated_text
+            assert migrated_text.count("# >>> tmux-codex-auto-continue >>>") == 1
+
             # An unmarked reference is reported explicitly instead of being
             # mistaken for an active managed installation.
             config.write_text(
