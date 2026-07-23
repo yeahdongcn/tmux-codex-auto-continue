@@ -1,35 +1,79 @@
 # tmux-codex-auto-continue
 
-An unofficial tmux watcher that recovers interrupted Codex CLI turns, selected
-retry states, and Codex's **Keep waiting** safety-buffering choice.
+[![CI](https://github.com/yeahdongcn/tmux-codex-auto-continue/actions/workflows/ci.yml/badge.svg)](https://github.com/yeahdongcn/tmux-codex-auto-continue/actions/workflows/ci.yml)
+[![Latest release](https://img.shields.io/github/v/release/yeahdongcn/tmux-codex-auto-continue)](https://github.com/yeahdongcn/tmux-codex-auto-continue/releases/latest)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
+An unofficial Linux tmux watcher that recovers interrupted Codex CLI turns,
+selected retry states, and Codex's **Keep waiting** safety-buffering choice.
+
+It watches only verified Codex panes and submits `Continue` with a real Enter
+when the evidence is strong enough. It never creates, renames, restarts, closes,
+or kills a tmux session or pane; it only injects the documented input into an
+already-running Codex pane.
 
 > [!WARNING]
 > This plugin injects keys into a verified Codex pane. Retrying an interrupted
 > turn or accepting **Keep waiting** can keep a session running and consume
 > additional time or tokens. Read the behavior and safety sections below, and
-> use `prefix` + `A` as the emergency toggle.
+> use the toggle key (`prefix` + `A` by default) as the emergency stop. This
+> automation does not bypass Codex/OpenAI safety controls or grant Trusted
+> Access; a retried request can be rejected again.
+
+![Illustrated retry and Keep waiting flow](docs/demo.gif)
+
+The animation shows the two recovery paths; it is an illustration of the
+verified input sequence, not a promise that every Codex layout is supported.
 
 ## Quick install
 
-Pinned one-line installer (v0.2.1):
+Pinned one-line installer (v0.2.2):
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/yeahdongcn/tmux-codex-auto-continue/v0.2.1/install.sh | sh
+curl --proto '=https' --tlsv1.2 -fsSL \
+  https://raw.githubusercontent.com/yeahdongcn/tmux-codex-auto-continue/v0.2.2/install.sh | sh
 ```
+
+Using TPM? See [TPM installation](#tpm-installation) for the opt-in config
+snippet.
 
 For an audit-first install, download and inspect the script before running it:
 
 ```sh
-curl -fsSLo /tmp/tmux-codex-install.sh \
-  https://raw.githubusercontent.com/yeahdongcn/tmux-codex-auto-continue/v0.2.1/install.sh
+curl --proto '=https' --tlsv1.2 -fsSLo /tmp/tmux-codex-install.sh \
+  https://raw.githubusercontent.com/yeahdongcn/tmux-codex-auto-continue/v0.2.2/install.sh
 less /tmp/tmux-codex-install.sh
 sh /tmp/tmux-codex-install.sh
 ```
 
-The installer uses no `sudo`, verifies the watcher SHA-256, runs its self-test,
-installs it to `~/.local/bin`, adds one marked block to `~/.tmux.conf`, and
-reloads the default tmux server without restarting it. Re-running it is
-idempotent.
+Release checksums for the installer, uninstaller, and watcher are in
+[`SHA256SUMS`](SHA256SUMS). The checksum file is a review aid, not a signature;
+verify it against a trusted release page before relying on it.
+
+The one-liner executes the installer fetched over HTTPS from the versioned tag;
+the installer itself is not independently signed. It downloads the watcher,
+verifies its embedded SHA-256, runs its self-test, and uses no `sudo`. The
+default install immediately enables the watcher, adds or updates one marked
+block in `~/.tmux.conf`, sources that config, and refreshes only the watcher.
+The tmux server, sessions, and panes are not restarted, and re-running the
+installer keeps a single managed block.
+
+If `prefix` + `A` is already bound, choose another safe tmux key token during
+installation, for example:
+
+```sh
+curl --proto '=https' --tlsv1.2 -fsSL \
+  https://raw.githubusercontent.com/yeahdongcn/tmux-codex-auto-continue/v0.2.2/install.sh \
+  | env TMUX_CODEX_AUTO_CONTINUE_KEY=C-a sh
+```
+
+To install only the executable without changing or sourcing tmux config:
+
+```sh
+curl --proto '=https' --tlsv1.2 -fsSL \
+  https://raw.githubusercontent.com/yeahdongcn/tmux-codex-auto-continue/v0.2.2/install.sh \
+  | sh -s -- --no-config
+```
 
 ## Automatic behavior
 
@@ -49,8 +93,9 @@ idempotent.
 The two-item safety menu (without a faster-model retry choice) is also handled:
 when `Keep waiting` is already the first selected item, only Enter is sent.
 Each newly rendered supported cybersecurity notice is treated as a new retry
-event. If the same notice keeps recurring, use `prefix` + `A` to stop automatic
-retries.
+event. This only submits `Continue`; it does not bypass safety checks or satisfy
+Trusted Access requirements. If the same notice keeps recurring, use the toggle
+key to stop automatic retries before it consumes more requests or tokens.
 
 Normal completed turns are always ignored. For a `Worked for` marker, the
 watcher looks for Codex's final-response boundary immediately before the last
@@ -95,19 +140,22 @@ The watcher fails closed and sends input only after all relevant checks pass:
   or timeout cancels the deferred action.
 - `Continue` uses bracketed paste followed by a real Enter. This avoids Codex's
   rapid-character paste-burst handling, which can turn Enter into a newline.
+- Matching, pane inspection, and key injection happen locally. The running
+  watcher makes no network requests and never uploads pane contents; only the
+  installer/update commands contact the configured raw GitHub URL.
 
-No tmux session or pane is created, renamed, closed, or killed.
+No tmux session or pane is created, renamed, restarted, closed, or killed.
 
 ## Requirements and compatibility
 
 - Linux with a mounted `/proc` filesystem (WSL should work, but is not yet
   covered by CI)
-- Python 3.10 or newer
+- Python 3.10 or newer (CI currently covers 3.10 and 3.12)
 - tmux (3.2 or newer recommended)
 - Codex CLI installed from the npm `@openai/codex` package
 - UTF-8 terminal and the English Codex UI
 
-v0.2.1 is tested with Codex CLI 0.144.5, plus isolated tmux integrations
+v0.2.2 is tested with Codex CLI 0.144.5, plus isolated tmux integrations
 using a native fake-Codex process. Codex UI wording and layout may change in
 later releases; unknown layouts are ignored rather than matched loosely.
 macOS, Homebrew/standalone Codex binaries, localized UI text, and non-Linux
@@ -127,7 +175,8 @@ run '~/.tmux/plugins/tpm/tpm'
 ```
 
 Press `prefix` + `I` to install it. TPM uses the repository-local executable;
-it does not copy anything into `~/.local/bin`.
+it does not copy anything into `~/.local/bin`. TPM follows the repository's
+default branch; use the pinned curl installer when you need a fixed release.
 
 The toggle key defaults to `prefix` + `A`. Set it before the plugin line to use
 another tmux key:
@@ -138,30 +187,64 @@ set -g @codex-auto-continue-key C-a
 
 ## Operation
 
-Check the default tmux server:
+Check the default tmux server with the executable for your installation method:
 
 ```sh
+# curl installation
 ~/.local/bin/tmux-codex-auto-continue \
+  --socket "$(tmux display-message -p '#{socket_path}')" --status
+
+# TPM installation
+~/.tmux/plugins/tmux-codex-auto-continue/bin/tmux-codex-auto-continue \
   --socket "$(tmux display-message -p '#{socket_path}')" --status
 ```
 
-Toggle it with `prefix` + `A`, or set the global option explicitly:
+Toggle it with the configured key, or suspend/resume an already-running watcher
+with the global option:
 
 ```sh
 tmux set-option -g @codex-auto-continue off
 tmux set-option -g @codex-auto-continue on
 ```
 
-Logs contain pane/session identifiers and action kinds, not pane contents, and
-are stored at `~/.cache/tmux-codex-auto-continue.log`. A separate tmux socket
-(`tmux -L name`) needs its own watcher process and global options.
+Setting the option does not create a missing watcher process. After a manual or
+`--no-config` install, start it with the appropriate executable path and
+`--restart`:
+
+```sh
+~/.local/bin/tmux-codex-auto-continue \
+  --socket "$(tmux display-message -p '#{socket_path}')" --restart
+```
+
+A separate tmux socket (`tmux -L name`) needs its own watcher process and global
+options.
+
+## Troubleshooting
+
+Check the option, watcher status, and local metadata-only log:
+
+```sh
+tmux show-options -gqv @codex-auto-continue
+~/.local/bin/tmux-codex-auto-continue \
+  --socket "$(tmux display-message -p '#{socket_path}')" --status
+tail -f ~/.cache/tmux-codex-auto-continue.log
+```
+
+The log contains pane/session identifiers and action kinds, not captured pane
+text. If a state is not handled, confirm that the English Codex UI text matches
+the documented column-zero pattern, the npm Codex executable owns the pane's
+foreground process group, the composer is empty, and the pane is not in a tmux
+mode. A matching event first seen in copy mode is retained for at most 30
+seconds and is revalidated after the mode exits.
 
 ## Update and uninstall
 
-Re-run the pinned v0.2.1 installer to update. It replaces only the verified
-watcher process for the default tmux socket; it does not restart the tmux
+Re-run the pinned v0.2.2 installer to update. It replaces only the verified
+watcher process for the default tmux socket and rewrites only its marked block
+with the current executable path and toggle key; it does not restart the tmux
 server or any pane. The installer removes the obsolete v0.1.x Worked opt-in
-from its marked configuration block and unsets that legacy live option.
+and unsets that legacy live option. See the [changelog](CHANGELOG.md) for release
+details.
 
 After manually replacing the executable, reload it safely with:
 
@@ -173,12 +256,15 @@ After manually replacing the executable, reload it safely with:
 To remove a curl installation:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/yeahdongcn/tmux-codex-auto-continue/v0.2.1/uninstall.sh | sh
+curl --proto '=https' --tlsv1.2 -fsSL \
+  https://raw.githubusercontent.com/yeahdongcn/tmux-codex-auto-continue/v0.2.2/uninstall.sh | sh
 ```
 
 The uninstaller disables the watcher, cleans up the obsolete v0.1.x option,
 removes only the marked config block and installed executable, and never stops
 the tmux server. A currently idle watcher exits when that tmux server exits.
+As with the one-line installer, inspect the downloaded script first if you do
+not want to execute it directly from the versioned HTTPS URL.
 
 For TPM, remove the plugin line and press `prefix` + `alt` + `u` (TPM's clean
 command), or remove its plugin directory manually.
@@ -196,6 +282,7 @@ ruff check bin/tmux-codex-auto-continue
 ruff check tests/worked_integration.py
 ruff check tests/install_integration.py
 shellcheck install.sh uninstall.sh tmux-codex-auto-continue.tmux
+sha256sum --check SHA256SUMS
 ```
 
 The built-in tests cover error, interruption, and complete cybersecurity-notice
@@ -205,10 +292,10 @@ test uses an isolated tmux server and a native fake-Codex process to verify
 normal-completion suppression, both strict cybersecurity-notice paths,
 history-backed interrupted-turn recovery, quoted-line rejection, bounded
 pane-mode recovery, manual-recovery deduplication, and watcher-only restart.
-The installer integration verifies fresh configuration and legacy-option
-migration. Separately, the safety-menu path was exercised against an isolated
-native fake-Codex process to verify Down+Enter, Enter-only, and no repeated
-keys.
+The installer integration verifies fresh configuration, legacy-option
+migration, managed key rewrites, unmarked-config warnings, and `--no-config`
+behavior. Separately, the safety-menu path was exercised against an isolated
+native fake-Codex process to verify Down+Enter, Enter-only, and no repeated keys.
 
 Security reports should follow [SECURITY.md](SECURITY.md).
 

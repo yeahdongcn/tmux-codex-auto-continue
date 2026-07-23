@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.2.2 - 2026-07-23
+
+- Make the curl installer rewrite only its marked block, refresh changed
+  executable paths and toggle keys, and refuse ambiguous or unmarked config
+  matches instead of silently skipping setup.
+- Add `TMUX_CODEX_AUTO_CONTINUE_KEY` for curl installs and make `--no-config`
+  output accurately describe what was (and was not) configured.
+- Clarify the local-only runtime, safety-policy boundary, pinned installer trust
+  model, TPM-versus-curl paths, and troubleshooting commands.
+
 ## v0.2.1 - 2026-07-23
 
 - Recognize the complete four-line `ⓘ This content can't be shown` Trusted

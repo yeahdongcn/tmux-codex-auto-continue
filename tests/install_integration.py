@@ -67,6 +67,7 @@ def main() -> int:
                 "XDG_RUNTIME_DIR": str(runtime),
                 "TMUX_CODEX_AUTO_CONTINUE_BIN_DIR": str(bin_dir),
                 "TMUX_CODEX_AUTO_CONTINUE_TMUX_CONF": str(home / ".tmux.conf"),
+                "TMUX_CODEX_AUTO_CONTINUE_KEY": "C-a",
             }
         )
 
@@ -81,9 +82,9 @@ def main() -> int:
                 env=environment,
             )
 
-        def run_installer() -> subprocess.CompletedProcess[str]:
+        def run_installer(*arguments: str) -> subprocess.CompletedProcess[str]:
             return subprocess.run(
-                ["sh", str(INSTALLER)],
+                ["sh", str(INSTALLER), *arguments],
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
                 encoding="utf-8",
@@ -123,6 +124,8 @@ def main() -> int:
             config = home / ".tmux.conf"
             config_text = config.read_text(encoding="utf-8")
             assert WORKED_OPTION not in config_text
+            assert "bind-key C-a " in config_text
+            assert "prefix+C-a" in installed.stdout
             assert tmux("show-options", "-gqv", "@codex-auto-continue").stdout.strip() == "on"
             assert not tmux(
                 "show-options", "-gqv", "@codex-auto-continue-worked"
@@ -149,6 +152,37 @@ def main() -> int:
                 "show-options", "-gqv", "@codex-auto-continue-worked"
             ).stdout.strip()
             assert upgraded_text.count("# >>> tmux-codex-auto-continue >>>") == 1
+
+            # A changed toggle key rewrites the managed block instead of
+            # leaving a stale binding behind.
+            environment["TMUX_CODEX_AUTO_CONTINUE_KEY"] = "C-b"
+            rebound = run_installer()
+            assert rebound.returncode == 0, rebound.stdout
+            rebound_text = config.read_text(encoding="utf-8")
+            assert "bind-key C-b " in rebound_text
+            assert "bind-key C-a " not in rebound_text
+            assert rebound_text.count("# >>> tmux-codex-auto-continue >>>") == 1
+
+            # --no-config installs the executable without claiming that a
+            # toggle binding was configured or changing the existing file.
+            before_no_config = config.read_text(encoding="utf-8")
+            no_config = run_installer("--no-config")
+            assert no_config.returncode == 0, no_config.stdout
+            assert "prefix+" not in no_config.stdout
+            assert config.read_text(encoding="utf-8") == before_no_config
+
+            # An unmarked reference is reported explicitly instead of being
+            # mistaken for an active managed installation.
+            config.write_text(
+                "# see tmux-codex-auto-continue documentation\n",
+                encoding="utf-8",
+            )
+            unmanaged = run_installer()
+            assert unmanaged.returncode == 0, unmanaged.stdout
+            assert "Unmanaged tmux-codex-auto-continue text detected" in unmanaged.stdout
+            assert "# >>> tmux-codex-auto-continue >>>" not in config.read_text(
+                encoding="utf-8"
+            )
             print("install-integration: PASS")
             return 0
         finally:

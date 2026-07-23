@@ -36,5 +36,6 @@ jobs:
           ruff check tests/install_integration.py
           test "$(sed -n 's/^VERSION=//p' install.sh)" = "v$(python bin/tmux-codex-auto-continue --version)"
           printf '%s  %s\n' "$(sed -n 's/^WATCHER_SHA256=//p' install.sh)" bin/tmux-codex-auto-continue | sha256sum --check --status
+          sha256sum --check SHA256SUMS
       - name: Shell checks
         run: shellcheck install.sh uninstall.sh tmux-codex-auto-continue.tmux
