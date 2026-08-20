@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.2.9 - 2026-08-20
+
+- Recognize Codex's exact `stream disconnected before completion: stream
+  closed before response.completed` terminal error and submit `Continue` with
+  the existing verified bracketed-paste plus real-Enter path.
+- Reject missing-glyph, quoted, indented, modified, and unknown-suffix
+  lookalikes, with unit and isolated tmux integration coverage.
+
 ## v0.2.8 - 2026-08-19
 
 - Recognize Codex's `exceeded retry limit, last status: 429 Too Many Requests`

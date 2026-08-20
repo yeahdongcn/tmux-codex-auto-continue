@@ -42,7 +42,7 @@ REPLY = "Continue"
 COMPACT_COMMAND = "/compact"
 OPTION_NAME = "@codex-auto-continue"
 EMPTY_COMPOSER_CURSOR_X = 2
-VERSION = "0.2.8"
+VERSION = "0.2.9"
 CODEX_NATIVE_PACKAGE_TAILS = frozenset(
     {
         (
@@ -75,6 +75,11 @@ CAPACITY_RE = re.compile(
 )
 STREAMING_ERROR_RE = re.compile(
     r"^■ internal streaming error, please retry(?:[ \t]+---)?[ \t]*$",
+    re.MULTILINE,
+)
+STREAM_DISCONNECTED_RE = re.compile(
+    r"^■ stream disconnected before completion: stream closed before "
+    r"response\.completed(?:[ \t]+---)?[ \t]*$",
     re.MULTILINE,
 )
 SERVER_OVERLOADED_RE = re.compile(
@@ -482,6 +487,9 @@ def event_records(text: str) -> list[tuple[int, int, str]]:
 
     for match in STREAMING_ERROR_RE.finditer(text):
         matches.append((match.start(), match.end(), "streaming_error"))
+
+    for match in STREAM_DISCONNECTED_RE.finditer(text):
+        matches.append((match.start(), match.end(), "stream_disconnected"))
 
     for match in SERVER_OVERLOADED_RE.finditer(text):
         matches.append((match.start(), match.end(), "server_overloaded"))
@@ -2190,6 +2198,14 @@ def self_test() -> int:
             ),
             "■ internal streaming error, please retry",
             "■ internal streaming error, please retry ---   ",
+            (
+                "■ stream disconnected before completion: stream closed "
+                "before response.completed"
+            ),
+            (
+                "■ stream disconnected before completion: stream closed "
+                "before response.completed  ---   "
+            ),
             "■ Our servers are currently overloaded. Please try again later.",
             (
                 "■ Our servers are currently overloaded. Please try again "
@@ -2243,6 +2259,8 @@ def self_test() -> int:
         "error:4031e3df-b388-458c-aa39-38f0fffa8295",
         "streaming_error",
         "streaming_error",
+        "stream_disconnected",
+        "stream_disconnected",
         "server_overloaded",
         "server_overloaded",
         "server_overloaded",
@@ -2344,6 +2362,31 @@ def self_test() -> int:
     ]
     assert event_signatures("› ─ Worked for 10m 56s ───────────────") == []
     assert event_signatures("› ■ internal streaming error, please retry ---") == []
+    stream_disconnected = (
+        "■ stream disconnected before completion: stream closed before "
+        "response.completed"
+    )
+    assert event_signatures(stream_disconnected) == ["stream_disconnected"]
+    assert event_signatures(f"{stream_disconnected}  ---   ") == [
+        "stream_disconnected"
+    ]
+    assert terminal_event_is_current_text(
+        f"{stream_disconnected}\n\n› ",
+        "stream_disconnected",
+    )
+    for quoted_or_modified_stream_disconnect in (
+        stream_disconnected.removeprefix("■ "),
+        f"› {stream_disconnected}",
+        f"• {stream_disconnected}",
+        f"  {stream_disconnected}",
+        stream_disconnected.replace("response.completed", "response.done"),
+        f"{stream_disconnected} unexpected",
+    ):
+        assert event_signatures(quoted_or_modified_stream_disconnect) == []
+    assert not terminal_event_is_current_text(
+        f"{stream_disconnected}\n\n› Continue",
+        "stream_disconnected",
+    )
     overloaded = "■ Our servers are currently overloaded. Please try again later."
     assert event_signatures(overloaded) == ["server_overloaded"]
     assert event_signatures(f"{overloaded}  ---   ") == ["server_overloaded"]

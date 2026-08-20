@@ -83,6 +83,7 @@ curl --proto '=https' --tlsv1.2 -fsSL \
 | --- | --- |
 | `■ An error occurred while processing ...` | Paste `Continue`, then send a real Enter |
 | `■ internal streaming error, please retry` | Paste `Continue`, then send a real Enter |
+| `■ stream disconnected before completion: stream closed before response.completed` | Paste `Continue`, then send a real Enter |
 | `■ Our servers are currently overloaded. Please try again later.` | Paste `Continue`, then send a real Enter |
 | `■ exceeded retry limit, last status: 429 Too Many Requests`, with a current recoverable Goal | Wait 2 seconds, then paste `/goal resume` and send a real Enter |
 | The same 429 state, without a current recoverable Goal | Wait 2 seconds, then paste `Continue` and send a real Enter |
@@ -339,13 +340,15 @@ shellcheck install.sh uninstall.sh tmux-codex-auto-continue.tmux
 sha256sum --check SHA256SUMS
 ```
 
-The built-in tests cover error, interruption, fixed-delay rate-limit recovery,
+The built-in tests cover error, stream-disconnection, interruption, fixed-delay
+rate-limit recovery,
 strict Goal status/footer parsing and current-event association, complete
 cybersecurity notice signatures, normal and unknown `Worked for` rejection, three-item and
 two-item menu parsing, selected rows, and quoted/stale prompt rejection. The
 integration test uses an isolated tmux server and a native fake-Codex process to
 verify
-normal-completion suppression, both strict cybersecurity-notice paths,
+normal-completion suppression, strict stream-disconnection recovery, both
+strict cybersecurity-notice paths,
 history-backed interrupted-turn recovery, quoted-line rejection, bounded
 pane-mode recovery, literal `/goal resume` delivery, manual-recovery
 deduplication, and watcher-only restart.

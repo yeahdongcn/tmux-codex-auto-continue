@@ -526,6 +526,23 @@ def main() -> int:
         assert capture().count(SUBMITTED_MARKER) == 12, diagnostics()
         assert capture().count(GOAL_RESUME_MARKER) == 2, diagnostics()
 
+        stream_disconnected = (
+            "■ stream disconnected before completion: stream closed before "
+            "response.completed"
+        )
+        emit_lines(stream_disconnected)
+        deadline = time.monotonic() + 10
+        while time.monotonic() < deadline:
+            if capture().count(SUBMITTED_MARKER) == 13:
+                break
+            time.sleep(0.25)
+        assert capture().count(SUBMITTED_MARKER) == 13, diagnostics()
+
+        # Quoted copies are transcript content, not a current Codex error.
+        emit_lines(f"  {stream_disconnected}")
+        time.sleep(2.5)
+        assert capture().count(SUBMITTED_MARKER) == 13, diagnostics()
+
         # The daemon is scoped to the tmux server, not one session. A session
         # created after the daemon baseline may already show a current 429 on
         # the first poll. Recover it instead of treating that first frame as
@@ -609,6 +626,7 @@ def main() -> int:
         output = watcher_log_path.read_text()
         assert "event=worked_interrupted" in output
         assert "event=server_overloaded" in output
+        assert "event=stream_disconnected" in output
         assert "event=cyber_content_blocked" in output
         assert "event=cyber_risk_flagged" in output
         assert "sent /compact" in output
