@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.2.10 - 2026-08-29
+
+- Recognize Codex's strict context-window exhaustion notice and route it through
+  the guarded two-stage `/compact` then `Continue` recovery flow.
+- Require a fresh `Context compacted` confirmation before submitting `Continue`,
+  while preserving duplicate, stale-marker, and lookalike protections.
+
 ## v0.2.9 - 2026-08-20
 
 - Recognize Codex's exact `stream disconnected before completion: stream

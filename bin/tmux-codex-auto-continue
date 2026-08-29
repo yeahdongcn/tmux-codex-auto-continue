@@ -42,7 +42,7 @@ REPLY = "Continue"
 COMPACT_COMMAND = "/compact"
 OPTION_NAME = "@codex-auto-continue"
 EMPTY_COMPOSER_CURSOR_X = 2
-VERSION = "0.2.9"
+VERSION = "0.2.10"
 CODEX_NATIVE_PACKAGE_TAILS = frozenset(
     {
         (
@@ -138,6 +138,12 @@ GOAL_FOOTER_STATUS_RE = re.compile(
 ANSI_CSI_RE = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]")
 CONTEXT_TOO_LARGE_HEADER_RE = re.compile(
     r"^■ unexpected status 413 Payload Too Large:[ \t]*.*$",
+    re.MULTILINE,
+)
+CONTEXT_WINDOW_EXHAUSTED_RE = re.compile(
+    r"^■ Codex ran out of room in the model's context window\. "
+    r"Start a new thread or clear earlier history before retrying\."
+    r"(?:[ \t]+---)?[ \t]*$",
     re.MULTILINE,
 )
 CONTEXT_COMPACTED_RE = re.compile(
@@ -429,7 +435,7 @@ def classify_worked(text: str, worked_start: int) -> str:
 
 
 def context_too_large_records(text: str) -> list[tuple[int, int, str]]:
-    """Return strict, bounded matches for the internal 413 context error."""
+    """Return strict, bounded matches for context-compaction errors."""
 
     matches: list[tuple[int, int, str]] = []
     event_line_re = re.compile(r"^[■─›»•ⓘ⚠](?: |$)")
@@ -458,6 +464,11 @@ def context_too_large_records(text: str) -> list[tuple[int, int, str]]:
         normalized = re.sub(r"\s+", " ", " ".join(block))
         if all(token in normalized for token in CONTEXT_TOO_LARGE_REQUIRED_TOKENS):
             matches.append((header.start(), block_end, CONTEXT_TOO_LARGE))
+
+    # Codex can emit a native context-window diagnostic instead of the proxy's
+    # detailed 413 block. Normalize it to the same two-stage compaction path.
+    for match in CONTEXT_WINDOW_EXHAUSTED_RE.finditer(text):
+        matches.append((match.start(), match.end(), CONTEXT_TOO_LARGE))
 
     return matches
 
@@ -2601,6 +2612,34 @@ def self_test() -> int:
         "■ unexpected status 413 Payload Too Large:",
     ):
         assert event_signatures(quoted_or_incomplete_context_error) == []
+
+    context_window_exhausted = (
+        "■ Codex ran out of room in the model's context window. Start a new "
+        "thread or clear earlier history before retrying."
+    )
+    assert event_signatures(context_window_exhausted) == [CONTEXT_TOO_LARGE]
+    assert event_signatures(f"{context_window_exhausted}  ---   ") == [
+        CONTEXT_TOO_LARGE
+    ]
+    assert reply_for_events(event_signatures(context_window_exhausted)) == (
+        COMPACT_COMMAND
+    )
+    current_context_window_error = f"{context_window_exhausted}\n\n› "
+    assert terminal_event_is_current_text(
+        current_context_window_error,
+        CONTEXT_TOO_LARGE,
+    )
+    for quoted_context_window_error in (
+        context_window_exhausted.removeprefix("■ "),
+        f"› {context_window_exhausted}",
+        f"• {context_window_exhausted}",
+        f"  {context_window_exhausted}",
+        context_window_exhausted.replace("model's", "model’s", 1),
+        context_window_exhausted.replace("context window", "context limit", 1),
+        context_window_exhausted.replace("retrying.", "retrying now.", 1),
+        f"{context_window_exhausted} extra",
+    ):
+        assert event_signatures(quoted_context_window_error) == []
 
     assert event_signatures("• Context compacted") == [CONTEXT_COMPACTED]
     assert event_signatures("• Context compacted successfully") == [

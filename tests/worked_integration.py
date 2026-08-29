@@ -86,13 +86,20 @@ def main() -> int:
         ).stdout
 
     def send_line(line: str) -> None:
-        typed = tmux("send-keys", "-t", "0", "-l", line)
+        send_target_line("0", line)
+
+    def send_target_line(target: str, line: str) -> None:
+        typed = tmux("send-keys", "-t", target, "-l", line)
         assert typed.returncode == 0, typed.stderr
-        submitted = tmux("send-keys", "-t", "0", "Enter")
+        submitted = tmux("send-keys", "-t", target, "Enter")
         assert submitted.returncode == 0, submitted.stderr
 
     def emit_lines(*lines: str) -> None:
-        send_line(
+        emit_target_lines("0", *lines)
+
+    def emit_target_lines(target: str, *lines: str) -> None:
+        send_target_line(
+            target,
             "printf '%s\\n' "
             + " ".join(shlex.quote(line) for line in lines)
         )
@@ -588,6 +595,87 @@ def main() -> int:
             time.sleep(0.25)
         assert dynamic_capture.count(SUBMITTED_MARKER) == 1, dynamic_capture
         assert dynamic_capture.count(GOAL_RESUME_MARKER) == 0, dynamic_capture
+
+        # A native Codex context-window exhaustion notice uses the same guarded
+        # two-stage recovery as the proxy's 413 diagnostic: first /compact,
+        # then Continue only after a fresh Context compacted marker.
+        context_window_session = "context-window-session"
+        context_window_command = (
+            f"{shlex.quote(str(fake_codex))} --noprofile "
+            f"--rcfile {shlex.quote(str(bash_rc))} -i"
+        )
+        context_window_created = tmux(
+            "new-session",
+            "-d",
+            "-s",
+            context_window_session,
+            "-x",
+            "160",
+            "-y",
+            "24",
+            context_window_command,
+        )
+        assert context_window_created.returncode == 0, context_window_created.stderr
+        context_window_target = f"{context_window_session}:0.0"
+        time.sleep(1.0)
+        context_window_error = (
+            "■ Codex ran out of room in the model's context window. Start a "
+            "new thread or clear earlier history before retrying."
+        )
+        emit_target_lines(context_window_target, context_window_error)
+        deadline = time.monotonic() + 10
+        while time.monotonic() < deadline:
+            if capture_target(context_window_target).count(COMPACT_SUBMITTED_MARKER) == 1:
+                break
+            time.sleep(0.25)
+        context_window_capture = capture_target(context_window_target)
+        assert context_window_capture.count(COMPACT_SUBMITTED_MARKER) == 1, (
+            context_window_capture
+        )
+        assert context_window_capture.count(SUBMITTED_MARKER) == 0, (
+            context_window_capture
+        )
+
+        # The same visible error while compaction is in flight must not issue a
+        # duplicate /compact command.
+        emit_target_lines(context_window_target, context_window_error)
+        time.sleep(2.5)
+        context_window_capture = capture_target(context_window_target)
+        assert context_window_capture.count(COMPACT_SUBMITTED_MARKER) == 1, (
+            context_window_capture
+        )
+        assert context_window_capture.count(SUBMITTED_MARKER) == 0, (
+            context_window_capture
+        )
+
+        emit_target_lines(context_window_target, "• Context compacted")
+        deadline = time.monotonic() + 10
+        while time.monotonic() < deadline:
+            if capture_target(context_window_target).count(SUBMITTED_MARKER) == 1:
+                break
+            time.sleep(0.25)
+        context_window_capture = capture_target(context_window_target)
+        assert context_window_capture.count(SUBMITTED_MARKER) == 1, (
+            context_window_capture
+        )
+        assert context_window_capture.count(COMPACT_SUBMITTED_MARKER) == 1, (
+            context_window_capture
+        )
+
+        # A stale marker and an indented copy of the diagnostic remain inert.
+        emit_target_lines(
+            context_window_target,
+            "• Context compacted",
+            f"  {context_window_error}",
+        )
+        time.sleep(2.5)
+        context_window_capture = capture_target(context_window_target)
+        assert context_window_capture.count(SUBMITTED_MARKER) == 1, (
+            context_window_capture
+        )
+        assert context_window_capture.count(COMPACT_SUBMITTED_MARKER) == 1, (
+            context_window_capture
+        )
 
         # tmux can retain the PATH from when its server started. Reproduce a
         # server environment that cannot resolve the `tmux` command, then make
