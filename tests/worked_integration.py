@@ -109,6 +109,7 @@ def main() -> int:
         return f"{capture()}\nWATCHER LOG:\n{watcher_log_path.read_text()}"
 
     rate_limit = "■ exceeded retry limit, last status: 429 Too Many Requests"
+    rate_limit_with_request_id = f"{rate_limit}, request id: 95d4ac98"
 
     try:
         unavailable_restart = subprocess.run(
@@ -520,7 +521,7 @@ def main() -> int:
         # that the ordinary turn was interrupted. It therefore falls back to
         # Continue instead of being silently discarded.
         emit_lines(
-            rate_limit,
+            rate_limit_with_request_id,
             "• Goal complete Objective: finished this work Time: 58m.",
         )
         time.sleep(1.0)

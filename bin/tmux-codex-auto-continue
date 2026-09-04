@@ -42,7 +42,7 @@ REPLY = "Continue"
 COMPACT_COMMAND = "/compact"
 OPTION_NAME = "@codex-auto-continue"
 EMPTY_COMPOSER_CURSOR_X = 2
-VERSION = "0.2.10"
+VERSION = "0.2.11"
 CODEX_NATIVE_PACKAGE_TAILS = frozenset(
     {
         (
@@ -90,6 +90,10 @@ SERVER_OVERLOADED_RE = re.compile(
 )
 RATE_LIMIT_RE = re.compile(
     r"^■ exceeded retry limit, last status: 429 Too Many Requests"
+    r"(?:,[ \t]+request id:[ \t]+"
+    r"(?:[0-9A-Fa-f]{8}|"
+    r"[0-9A-Fa-f]{8}(?:-[0-9A-Fa-f]{4}){3}-[0-9A-Fa-f]{12})"
+    r")?"
     r"(?:[ \t]+---)?[ \t]*$",
     re.MULTILINE,
 )
@@ -2436,12 +2440,27 @@ def self_test() -> int:
     rate_limit = "■ exceeded retry limit, last status: 429 Too Many Requests"
     assert event_signatures(rate_limit) == [RATE_LIMIT]
     assert event_signatures(f"{rate_limit}  ---   ") == [RATE_LIMIT]
+    rate_limit_short_request_id = f"{rate_limit}, request id: 95d4ac98"
+    assert event_signatures(rate_limit_short_request_id) == [RATE_LIMIT]
+    assert event_signatures(f"{rate_limit_short_request_id}  ---   ") == [
+        RATE_LIMIT
+    ]
+    rate_limit_uuid = (
+        f"{rate_limit}, request id: "
+        "4031e3df-b388-458c-aa39-38f0fffa8295"
+    )
+    assert event_signatures(rate_limit_uuid) == [RATE_LIMIT]
+    assert event_signatures(f"{rate_limit_uuid} ---") == [RATE_LIMIT]
     for quoted_rate_limit in (
         rate_limit.removeprefix("■ "),
         f"› {rate_limit}",
         f"  {rate_limit}",
         rate_limit.replace("429", "500", 1),
         rate_limit.replace("Too Many Requests", "Request Timeout", 1),
+        f"{rate_limit}, request id: 95d4ac9",
+        f"{rate_limit}, request-id: 95d4ac98",
+        f"{rate_limit}, request id: zzzzzzzz",
+        f"{rate_limit}, request id: 95d4ac98 extra",
     ):
         assert event_signatures(quoted_rate_limit) == []
     goal_active = (

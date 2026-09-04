@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.2.11 - 2026-09-04
+
+- Recognize the 429 retry-limit notice when Codex includes a short request ID
+  or a UUID, and reuse the existing guarded `Continue` recovery path.
+- Keep strict column-zero matching and reject malformed IDs, lookalikes, and
+  unknown suffixes.
+
 ## v0.2.10 - 2026-08-29
 
 - Recognize Codex's strict context-window exhaustion notice and route it through
