@@ -108,6 +108,9 @@ def main() -> int:
         watcher_log.flush()
         return f"{capture()}\nWATCHER LOG:\n{watcher_log_path.read_text()}"
 
+    def pane_has_line(line: str) -> bool:
+        return any(candidate.rstrip() == line for candidate in capture().splitlines())
+
     rate_limit = "■ exceeded retry limit, last status: 429 Too Many Requests"
     rate_limit_with_request_id = f"{rate_limit}, request id: 95d4ac98"
 
@@ -152,6 +155,18 @@ def main() -> int:
             rate_limit,
             "• Goal active Objective: old startup event Time: 58m.",
         )
+        # send-keys returns before the shell has necessarily rendered the
+        # command's output. Wait for the actual column-zero lines, rather than
+        # a fixed sleep, so the daemon's startup baseline is deterministic on
+        # slower CI runners.
+        baseline_deadline = time.monotonic() + 5.0
+        while not (
+            pane_has_line(rate_limit)
+            and pane_has_line("• Goal active Objective: old startup event Time: 58m.")
+        ):
+            if time.monotonic() >= baseline_deadline:
+                raise AssertionError(diagnostics())
+            time.sleep(0.05)
 
         watcher = subprocess.Popen(
             ["python3", str(WATCHER), "--socket", socket],
